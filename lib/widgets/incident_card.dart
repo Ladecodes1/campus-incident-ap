@@ -40,6 +40,47 @@ class StatusChip extends StatelessWidget {
   }
 }
 
+// An icon and colour for each category
+class CategoryStyle {
+  static IconData iconFor(String category) {
+    switch (category) {
+      case 'Broken facilities':
+        return Icons.build_rounded;
+      case 'Water shortage':
+        return Icons.water_drop_rounded;
+      case 'Electricity outage':
+        return Icons.bolt_rounded;
+      case 'Damaged furniture':
+        return Icons.chair_alt_rounded;
+      case 'Sanitation':
+        return Icons.cleaning_services_rounded;
+      case 'Safety concern':
+        return Icons.shield_rounded;
+      default:
+        return Icons.report_problem_rounded;
+    }
+  }
+
+  static Color colorFor(String category) {
+    switch (category) {
+      case 'Broken facilities':
+        return Colors.deepOrange;
+      case 'Water shortage':
+        return Colors.lightBlue;
+      case 'Electricity outage':
+        return Colors.amber.shade700;
+      case 'Damaged furniture':
+        return Colors.brown;
+      case 'Sanitation':
+        return Colors.teal;
+      case 'Safety concern':
+        return Colors.red;
+      default:
+        return Colors.blueGrey;
+    }
+  }
+}
+
 // One report in the list
 class IncidentCard extends StatelessWidget {
   final Incident incident;
@@ -61,52 +102,95 @@ class IncidentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final statusColor = StatusChip.colorFor(incident.status);
+    final catColor = CategoryStyle.colorFor(incident.category);
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      incident.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
+              // Coloured stripe showing the status
+              Container(width: 6, color: statusColor),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Category icon
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: catColor.withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          CategoryStyle.iconFor(incident.category),
+                          color: catColor,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              incident.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              incident.category,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: Colors.grey.shade700),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const Icon(Icons.place_outlined, size: 15),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    incident.location,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                StatusChip(status: incident.status),
+                                const Spacer(),
+                                Text(
+                                  _formatDate(incident.createdAt),
+                                  style:
+                                      Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  StatusChip(status: incident.status),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                incident.category,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(Icons.place_outlined, size: 16),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      incident.location,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Text(
-                    _formatDate(incident.createdAt),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+                ),
               ),
             ],
           ),

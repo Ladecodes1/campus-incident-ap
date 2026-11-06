@@ -22,8 +22,21 @@ class IncidentProvider extends ChangeNotifier {
   String? get categoryFilter => _categoryFilter;
   String? get statusFilter => _statusFilter;
 
-  IncidentProvider() {
-    _listen();
+  // Called whenever the login state changes.
+  // We only listen to Firestore while someone is logged in.
+  void setActive(bool active) {
+    if (active) {
+      if (_sub == null) _listen();
+    } else {
+      _sub?.cancel();
+      _sub = null;
+      _all = [];
+      _loading = true;
+      _error = null;
+      _search = '';
+      _categoryFilter = null;
+      _statusFilter = null;
+    }
   }
 
   // Starts listening to Firestore. Any change updates the screens.
@@ -46,7 +59,10 @@ class IncidentProvider extends ChangeNotifier {
     );
   }
 
-  void retry() => _listen();
+  void retry() {
+    _listen();
+    notifyListeners();
+  }
 
   // The list the screens show: all reports after search and filters
   List<Incident> get incidents {

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/incident.dart';
 import '../providers/auth_provider.dart';
 import '../providers/incident_provider.dart';
 import '../widgets/incident_card.dart';
-import '../models/incident.dart';
 import 'incident_detail_screen.dart';
 import 'submit_incident_screen.dart';
 
@@ -29,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final auth = context.watch<AuthProvider>();
     final provider = context.watch<IncidentProvider>();
     final uid = auth.user?.uid;
+    final firstName = (auth.user?.name ?? '').split(' ').first;
 
     var list = provider.incidents;
     if (_onlyMine && uid != null) {
@@ -42,7 +43,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(auth.isStaff ? 'Campus Incidents (Staff)' : 'Campus Incidents'),
+        title: Text(
+          auth.isStaff ? 'Campus Incidents (Staff)' : 'Campus Incidents',
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -63,14 +66,50 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Column(
         children: [
+          // Greeting
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                firstName.isEmpty ? 'Hello!' : 'Hi, $firstName 👋',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          // Status summary tiles (tap one to filter)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Row(
+              children: [
+                for (final status in IncidentStatus.all) ...[
+                  Expanded(
+                    child: _StatTile(
+                      label: status,
+                      count: provider.countByStatus(status),
+                      color: StatusChip.colorFor(status),
+                      selected: provider.statusFilter == status,
+                      onTap: () => provider.setStatusFilter(
+                        provider.statusFilter == status ? null : status,
+                      ),
+                    ),
+                  ),
+                  if (status != IncidentStatus.all.last)
+                    const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: TextField(
               controller: _searchCtrl,
               decoration: InputDecoration(
                 hintText: 'Search reports',
                 prefixIcon: const Icon(Icons.search),
-                border: const OutlineInputBorder(),
                 isDense: true,
                 suffixIcon: _searchCtrl.text.isEmpty
                     ? null
@@ -175,6 +214,8 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            const Icon(Icons.cloud_off, size: 48, color: Colors.grey),
+            const SizedBox(height: 8),
             Text(provider.error!),
             const SizedBox(height: 12),
             FilledButton(
@@ -190,11 +231,22 @@ class _HomeScreenState extends State<HomeScreen> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text(
-            hasFilters
-                ? 'No reports match your search or filters.'
-                : 'No reports yet. Tap "Report" to submit the first one.',
-            textAlign: TextAlign.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                hasFilters ? Icons.search_off : Icons.inbox_outlined,
+                size: 56,
+                color: Colors.grey,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                hasFilters
+                    ? 'No reports match your search or filters.'
+                    : 'No reports yet. Tap "Report" to submit the first one.',
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
         ),
       );
@@ -217,6 +269,64 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         );
       },
+    );
+  }
+}
+
+// One summary tile: a count and a status name
+class _StatTile extends StatelessWidget {
+  final String label;
+  final int count;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _StatTile({
+    required this.label,
+    required this.count,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+        decoration: BoxDecoration(
+          color: selected ? color : color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color, width: selected ? 2 : 1),
+        ),
+        child: Column(
+          children: [
+            Text(
+              '$count',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: selected ? Colors.white : color,
+              ),
+            ),
+            const SizedBox(height: 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? Colors.white : color,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

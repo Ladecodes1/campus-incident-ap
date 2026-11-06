@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/incident.dart';
 import '../providers/auth_provider.dart';
 import '../providers/incident_provider.dart';
+import '../widgets/incident_card.dart';
 
 class SubmitIncidentScreen extends StatefulWidget {
   const SubmitIncidentScreen({super.key});
@@ -68,23 +69,38 @@ class _SubmitIncidentScreenState extends State<SubmitIncidentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Report an incident')),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(20),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                Text(
+                  'What happened?',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Give campus staff the details they need to fix it quickly.',
+                ),
+                const SizedBox(height: 20),
                 TextFormField(
                   controller: _titleCtrl,
                   textCapitalization: TextCapitalization.sentences,
+                  maxLength: 80,
                   decoration: const InputDecoration(
                     labelText: 'Title',
                     hintText: 'e.g. Broken tap in Block B',
-                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.title),
                   ),
                   validator: (v) {
                     if (v == null || v.trim().length < 5) {
@@ -93,15 +109,30 @@ class _SubmitIncidentScreenState extends State<SubmitIncidentScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: _category,
                   decoration: const InputDecoration(
                     labelText: 'Category',
-                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.category_outlined),
                   ),
                   items: IncidentCategories.all
-                      .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                      .map(
+                        (c) => DropdownMenuItem(
+                          value: c,
+                          child: Row(
+                            children: [
+                              Icon(
+                                CategoryStyle.iconFor(c),
+                                color: CategoryStyle.colorFor(c),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(c),
+                            ],
+                          ),
+                        ),
+                      )
                       .toList(),
                   onChanged: (v) => setState(() => _category = v),
                   validator: (v) =>
@@ -115,7 +146,6 @@ class _SubmitIncidentScreenState extends State<SubmitIncidentScreen> {
                     labelText: 'Location',
                     hintText: 'e.g. Block B, 2nd floor bathroom',
                     prefixIcon: Icon(Icons.place_outlined),
-                    border: OutlineInputBorder(),
                   ),
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) {
@@ -128,11 +158,11 @@ class _SubmitIncidentScreenState extends State<SubmitIncidentScreen> {
                 TextFormField(
                   controller: _descCtrl,
                   maxLines: 5,
+                  maxLength: 500,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: const InputDecoration(
                     labelText: 'Description',
                     alignLabelWithHint: true,
-                    border: OutlineInputBorder(),
                   ),
                   validator: (v) {
                     if (v == null || v.trim().length < 10) {
@@ -141,18 +171,47 @@ class _SubmitIncidentScreenState extends State<SubmitIncidentScreen> {
                     return null;
                   },
                 ),
+                const SizedBox(height: 8),
+                // Privacy note
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colors.primaryContainer.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline,
+                          size: 20, color: colors.primary),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text(
+                          'Reports can be seen by ALU students and staff. '
+                          'Please do not include passwords or private '
+                          'details about other people.',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 24),
-                FilledButton(
+                FilledButton.icon(
                   onPressed: _saving ? null : _submit,
-                  child: Padding(
+                  icon: _saving
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.send_rounded),
+                  label: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    child: _saving
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Submit report'),
+                    child: Text(_saving ? 'Submitting...' : 'Submit report'),
                   ),
                 ),
               ],
