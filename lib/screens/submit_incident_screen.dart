@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../models/incident.dart';
 import '../providers/auth_provider.dart';
 import '../providers/incident_provider.dart';
+import '../services/storage_service.dart';
 import '../widgets/incident_card.dart';
 
 class SubmitIncidentScreen extends StatefulWidget {
@@ -17,7 +20,11 @@ class _SubmitIncidentScreenState extends State<SubmitIncidentScreen> {
   final _titleCtrl = TextEditingController();
   final _locationCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
+  final _picker = ImagePicker();
+  final _storage = StorageService();
+
   String? _category;
+  File? _photo;
   bool _saving = false;
 
   @override
@@ -26,6 +33,25 @@ class _SubmitIncidentScreenState extends State<SubmitIncidentScreen> {
     _locationCtrl.dispose();
     _descCtrl.dispose();
     super.dispose();
+  }
+
+  // Picks a photo and shrinks it so it uploads quickly
+  Future<void> _pickPhoto(ImageSource source) async {
+    try {
+      final picked = await _picker.pickImage(
+        source: source,
+        maxWidth: 1280,
+        imageQuality: 70,
+      );
+      if (picked != null) {
+        setState(() => _photo = File(picked.path));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open the photo picker.')),
+      );
+    }
   }
 
   Future<void> _submit() async {
@@ -38,6 +64,21 @@ class _SubmitIncidentScreenState extends State<SubmitIncidentScreen> {
 
     setState(() => _saving = true);
     try {
+      // Step 1: upload the photo (optional). If it fails, the report
+      // is still submitted, and we tell the student about it.
+      String? photoUrl;
+      var photoFailed = false;
+      if (_photo != null) {
+        try {
+          photoUrl = await _storage
+              .uploadIncidentPhoto(file: _photo!, uid: user.uid)
+              .timeout(const Duration(seconds: 30));
+        } catch (e) {
+          photoFailed = true;
+        }
+      }
+
+      // Step 2: save the report in Firestore
       final now = DateTime.now();
       await provider.addIncident(
         Incident(
@@ -47,14 +88,22 @@ class _SubmitIncidentScreenState extends State<SubmitIncidentScreen> {
           category: _category!,
           location: _locationCtrl.text.trim(),
           status: IncidentStatus.submitted,
+          photoUrl: photoUrl,
           reporterId: user.uid,
           reporterName: user.name,
           createdAt: now,
           updatedAt: now,
         ),
       );
+
       messenger.showSnackBar(
-        const SnackBar(content: Text('Report submitted. Thank you!')),
+        SnackBar(
+          content: Text(
+            photoFailed
+                ? 'Report submitted, but the photo could not be uploaded.'
+                : 'Report submitted. Thank you!',
+          ),
+        ),
       );
       navigator.pop();
     } catch (e) {
@@ -65,6 +114,69 @@ class _SubmitIncidentScreenState extends State<SubmitIncidentScreen> {
       );
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Widget _photoSection(ColorScheme colors) {
+    if (_photo != null) {
+      return Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.file(
+              _photo!,
+              height: 180,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
+          ),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: CircleAvatar(
+              backgroundColor: Colors.black54,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                tooltip: 'Remove photo',
+                onPressed: _saving ? null : () => setState(() => _photo = null),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.add_a_photo_outlined, size: 32, color: colors.primary),
+          const SizedBox(height: 8),
+          const Text('Add a photo (optional)'),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => _pickPhoto(ImageSource.gallery),
+                icon: const Icon(Icons.photo_library_outlined),
+                label: const Text('Gallery'),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                onPressed: () => _pickPhoto(ImageSource.camera),
+                icon: const Icon(Icons.photo_camera_outlined),
+                label: const Text('Camera'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -172,6 +284,8 @@ class _SubmitIncidentScreenState extends State<SubmitIncidentScreen> {
                   },
                 ),
                 const SizedBox(height: 8),
+                _photoSection(colors),
+                const SizedBox(height: 16),
                 // Privacy note
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -187,9 +301,9 @@ class _SubmitIncidentScreenState extends State<SubmitIncidentScreen> {
                       const SizedBox(width: 10),
                       const Expanded(
                         child: Text(
-                          'Reports can be seen by ALU students and staff. '
-                          'Please do not include passwords or private '
-                          'details about other people.',
+                          'Reports and photos can be seen by ALU students and '
+                          'staff. Please do not include passwords, faces, or '
+                          'private details about other people.',
                           style: TextStyle(fontSize: 13),
                         ),
                       ),
