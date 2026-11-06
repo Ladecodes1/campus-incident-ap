@@ -11,12 +11,16 @@ class AuthProvider extends ChangeNotifier {
   AppUser? _user;
   bool _initializing = true; // true until we know if someone is logged in
   bool _loading = false; // true while a login/register request is running
+  bool _needsVerification = false; // true after a login blocked by verification
   String? _error;
+  String? _info;
 
   AppUser? get user => _user;
   bool get initializing => _initializing;
   bool get loading => _loading;
+  bool get needsVerification => _needsVerification;
   String? get error => _error;
+  String? get info => _info;
   bool get isLoggedIn => _user != null;
   bool get isStaff => _user?.isStaff ?? false;
 
@@ -49,12 +53,29 @@ class AuthProvider extends ChangeNotifier {
     return _run(() => _service.login(email: email, password: password));
   }
 
+  Future<bool> resendVerification({
+    required String email,
+    required String password,
+  }) async {
+    final ok = await _run(() => _service.resendVerification(
+          email: email,
+          password: password,
+        ));
+    if (ok) {
+      _info = 'Verification email sent. Check your inbox and spam folder.';
+      notifyListeners();
+    }
+    return ok;
+  }
+
   Future<void> logout() async {
     await _service.logout();
   }
 
   void clearError() {
     _error = null;
+    _info = null;
+    _needsVerification = false;
     notifyListeners();
   }
 
@@ -62,12 +83,17 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> _run(Future<void> Function() action) async {
     _loading = true;
     _error = null;
+    _info = null;
+    _needsVerification = false;
     notifyListeners();
     try {
       await action();
       _loading = false;
       notifyListeners();
       return true;
+    } on EmailNotVerifiedException catch (e) {
+      _error = e.toString();
+      _needsVerification = true;
     } on FirebaseAuthException catch (e) {
       _error = _friendlyMessage(e.code);
     } catch (e) {

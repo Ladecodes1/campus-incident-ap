@@ -2,6 +2,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/app_user.dart';
 
+// Thrown when someone logs in before clicking the verification link
+class EmailNotVerifiedException implements Exception {
+  @override
+  String toString() =>
+      'Please verify your email first. Check your inbox and spam folder.';
+}
+
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -61,8 +68,26 @@ class AuthService {
 
     if (!user.emailVerified) {
       await _auth.signOut();
-      throw Exception('Please verify your email first. Check your inbox.');
+      throw EmailNotVerifiedException();
     }
+  }
+
+  // Sends the verification email again. If the email turns out to be
+  // verified already, the person simply stays logged in.
+  Future<void> resendVerification({
+    required String email,
+    required String password,
+  }) async {
+    final cred = await _auth.signInWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    );
+    final user = cred.user!;
+
+    if (user.emailVerified) return;
+
+    await user.sendEmailVerification();
+    await _auth.signOut();
   }
 
   Future<void> logout() async {

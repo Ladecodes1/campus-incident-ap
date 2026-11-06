@@ -33,6 +33,14 @@ class _LoginScreenState extends State<LoginScreen> {
         );
   }
 
+  Future<void> _resend() async {
+    if (!_formKey.currentState!.validate()) return;
+    await context.read<AuthProvider>().resendVerification(
+          email: _emailCtrl.text,
+          password: _passCtrl.text,
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -175,6 +183,30 @@ class _LoginScreenState extends State<LoginScreen> {
                           ],
                         ),
                       ),
+                    if (auth.info != null)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colors.primaryContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.mark_email_read_outlined,
+                                color: colors.onPrimaryContainer),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                auth.info!,
+                                style: TextStyle(
+                                  color: colors.onPrimaryContainer,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     FilledButton(
                       onPressed: auth.loading ? null : _submit,
                       child: Padding(
@@ -194,6 +226,13 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                       ),
                     ),
+                    // Shown only after a login was blocked by verification
+                    if (auth.needsVerification || auth.info != null)
+                      TextButton.icon(
+                        onPressed: auth.loading ? null : _resend,
+                        icon: const Icon(Icons.forward_to_inbox),
+                        label: const Text('Resend verification email'),
+                      ),
                     const SizedBox(height: 8),
                     TextButton(
                       onPressed: () {
